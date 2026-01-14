@@ -1,0 +1,324 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* OmniAgentPay Design System - Stripe-inspired fintech */
+
+@layer base {
+  :root {
+    /* Neutral foundation */
+    --background: 0 0% 99%;
+    --foreground: 220 13% 13%;
+
+    /* Cards and surfaces */
+    --card: 0 0% 100%;
+    --card-foreground: 220 13% 13%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 13% 13%;
+
+    /* Primary - refined blue */
+    --primary: 221 83% 53%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Secondary - subtle gray */
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 220 13% 13%;
+
+    /* Muted surfaces */
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
+
+    /* Accent */
+    --accent: 220 14% 96%;
+    --accent-foreground: 220 13% 13%;
+
+    /* Semantic colors */
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+
+    --info: 199 89% 48%;
+    --info-foreground: 0 0% 100%;
+
+    /* Borders and inputs */
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 221 83% 53%;
+
+    --radius: 0.5rem;
+
+    /* Sidebar */
+    --sidebar-background: 220 14% 98%;
+    --sidebar-foreground: 220 9% 46%;
+    --sidebar-primary: 221 83% 53%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 14% 96%;
+    --sidebar-accent-foreground: 220 13% 13%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 221 83% 53%;
+
+    /* Custom tokens */
+    --header-height: 56px;
+    --sidebar-width: 240px;
+    --sidebar-collapsed-width: 56px;
+  }
+
+  .dark {
+    --background: 224 20% 8%;
+    --foreground: 210 20% 98%;
+
+    --card: 224 18% 10%;
+    --card-foreground: 210 20% 98%;
+
+    --popover: 224 18% 10%;
+    --popover-foreground: 210 20% 98%;
+
+    --primary: 221 83% 58%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 224 15% 15%;
+    --secondary-foreground: 210 20% 98%;
+
+    --muted: 224 15% 15%;
+    --muted-foreground: 215 16% 57%;
+
+    --accent: 224 15% 15%;
+    --accent-foreground: 210 20% 98%;
+
+    --destructive: 0 62% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 142 71% 40%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+
+    --info: 199 89% 48%;
+    --info-foreground: 0 0% 100%;
+
+    --border: 224 15% 18%;
+    --input: 224 15% 18%;
+    --ring: 221 83% 58%;
+
+    --sidebar-background: 224 18% 9%;
+    --sidebar-foreground: 215 16% 57%;
+    --sidebar-primary: 221 83% 58%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 224 15% 14%;
+    --sidebar-accent-foreground: 210 20% 98%;
+    --sidebar-border: 224 15% 18%;
+    --sidebar-ring: 221 83% 58%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    /* Better touch handling on mobile */
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  /* Better touch targets for mobile */
+  button, a, [role="button"] {
+    @apply touch-manipulation;
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Prevent text size adjustment on iOS */
+  @media screen and (max-width: 768px) {
+    input, textarea, select {
+      font-size: 16px !important;
+    }
+  }
+
+  /* Typography scale */
+  h1 {
+    @apply text-2xl font-semibold tracking-tight;
+  }
+
+  h2 {
+    @apply text-xl font-semibold tracking-tight;
+  }
+
+  h3 {
+    @apply text-lg font-semibold;
+  }
+
+  h4 {
+    @apply text-base font-semibold;
+  }
+}
+
+@layer components {
+  /* Metric card styling */
+  .metric-card {
+    @apply bg-card border border-border rounded-lg p-5 transition-shadow hover:shadow-sm;
+    /* Enforce strict layout constraints */
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  .metric-value {
+    @apply text-2xl font-semibold tracking-tight text-foreground;
+    /* Prevent value from breaking layout */
+    word-break: keep-all;
+    overflow-wrap: break-word;
+  }
+
+  .metric-label {
+    @apply text-sm text-muted-foreground;
+    /* Ensure labels wrap safely */
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
+
+  /* Status chip variants */
+  .status-chip {
+    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  .status-succeeded {
+    @apply bg-success/10 text-success;
+  }
+
+  .status-pending {
+    @apply bg-warning/10 text-warning;
+  }
+
+  .status-failed {
+    @apply bg-destructive/10 text-destructive;
+  }
+
+  .status-blocked {
+    @apply bg-muted text-muted-foreground;
+  }
+
+  /* Code block styling */
+  .code-block {
+    @apply bg-muted/50 border border-border rounded-md p-4 font-mono text-sm overflow-x-auto;
+  }
+
+  /* Table styling */
+  .data-table {
+    @apply w-full text-sm;
+  }
+
+  .data-table th {
+    @apply text-left text-xs font-medium text-muted-foreground uppercase tracking-wider py-3 px-2 sm:px-4 border-b;
+  }
+
+  .data-table td {
+    @apply py-3 px-2 sm:px-4 border-b border-border;
+  }
+
+  .data-table tr:hover {
+    @apply bg-muted/30;
+  }
+
+  /* Mobile table wrapper for horizontal scroll */
+  .table-wrapper {
+    @apply -mx-4 sm:mx-0 overflow-x-auto;
+  }
+
+  .table-wrapper table {
+    @apply min-w-full;
+  }
+
+  /* Page container */
+  .page-container {
+    @apply max-w-7xl mx-auto px-4 py-4 sm:px-6 sm:py-6;
+  }
+
+  /* Section spacing */
+  .section {
+    @apply space-y-4;
+  }
+
+  .section-header {
+    @apply flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0;
+  }
+}
+
+@layer utilities {
+  /* Fade in animation */
+  .animate-fade-in {
+    animation: fadeIn 0.2s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Skeleton shimmer */
+  .skeleton {
+    @apply bg-muted animate-pulse rounded;
+  }
+
+  /* Navbar positioning */
+  .left-sidebar {
+    left: var(--sidebar-width);
+  }
+
+  .left-sidebar-collapsed {
+    left: var(--sidebar-collapsed-width);
+  }
+
+  /* Mobile-specific optimizations */
+  @media (max-width: 768px) {
+    /* Ensure minimum touch target sizes */
+    button, a[role="button"], [role="button"] {
+      min-height: 44px;
+      min-width: 44px;
+    }
+
+    /* Better spacing for mobile cards */
+    .metric-card {
+      @apply p-4;
+    }
+
+    /* Optimize text sizes for readability */
+    .metric-value {
+      @apply text-xl;
+    }
+
+    /* Better table cell padding on mobile */
+    .table-wrapper td,
+    .table-wrapper th {
+      @apply px-2 py-2;
+    }
+  }
+
+  /* Prevent zoom on input focus (iOS) */
+  @media screen and (max-width: 768px) {
+    input[type="text"],
+    input[type="email"],
+    input[type="number"],
+    input[type="password"],
+    input[type="search"],
+    textarea,
+    select {
+      font-size: 16px !important;
+    }
+  }
+}
