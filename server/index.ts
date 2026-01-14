@@ -15,12 +15,48 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // Middleware
+// Enhanced CORS configuration - permissive for development
+const isDevelopment = process.env.NODE_ENV !== 'production';
+
 app.use(cors({
-  origin: ['http://localhost:8080', 'http://localhost:5173', 'http://127.0.0.1:8080'],
+  origin: function (origin, callback) {
+    // In development, allow all origins for easier debugging
+    if (isDevelopment) {
+      return callback(null, true);
+    }
+    
+    // In production, only allow specific origins
+    const allowedOrigins = [
+      'http://localhost:8080',
+      'http://localhost:5173',
+      'http://127.0.0.1:8080',
+      'http://127.0.0.1:5173',
+    ];
+    
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
-  methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS', 'HEAD'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+  exposedHeaders: ['Content-Length', 'Content-Type'],
+  preflightContinue: false,
+  optionsSuccessStatus: 204
 }));
+
+// Handle preflight requests explicitly
+app.options('*', cors());
+
+// Request logging middleware (for debugging)
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.path} - Origin: ${req.headers.origin || 'none'}`);
+  next();
+});
+
 app.use(express.json());
 
 // Health check

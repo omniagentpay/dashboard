@@ -24,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Wallet, ExternalLink, ArrowUpRight } from 'lucide-react';
+import { Plus, Wallet, ExternalLink, ArrowUpRight, Shield } from 'lucide-react';
 import { walletsService } from '@/services/wallets';
 import type { Wallet as WalletType, ChainId } from '@/types';
 
@@ -46,6 +46,9 @@ export default function WalletsPage() {
   const [newWalletChain, setNewWalletChain] = useState<ChainId>('ethereum');
   const [newWalletAddress, setNewWalletAddress] = useState('');
   const [creating, setCreating] = useState(false);
+  const [connectCircleOpen, setConnectCircleOpen] = useState(false);
+  const [connectingCircle, setConnectingCircle] = useState(false);
+  const [circleWalletDescription, setCircleWalletDescription] = useState('');
 
   useEffect(() => {
     loadData();
@@ -82,6 +85,22 @@ export default function WalletsPage() {
     }
   };
 
+  const handleConnectCircleWallet = async () => {
+    setConnectingCircle(true);
+    try {
+      await walletsService.initializeCircleWallet(
+        circleWalletDescription.trim() || undefined
+      );
+      await loadData();
+      setConnectCircleOpen(false);
+      setCircleWalletDescription('');
+    } catch (error) {
+      console.error('Failed to connect Circle wallet:', error);
+    } finally {
+      setConnectingCircle(false);
+    }
+  };
+
   if (loading) {
     return (
       <div>
@@ -98,13 +117,68 @@ export default function WalletsPage() {
         title="Wallets"
         description="Manage your payment wallets across chains"
         actions={
-          <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Create Wallet
-              </Button>
-            </DialogTrigger>
+          <div className="flex gap-2">
+            <Dialog open={connectCircleOpen} onOpenChange={setConnectCircleOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline">
+                  <Shield className="h-4 w-4 mr-2" />
+                  Connect Circle Wallet
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Connect Circle Wallet</DialogTitle>
+                  <DialogDescription>
+                    Initialize a custodial wallet managed by Circle. This wallet will be used by backend agents for payment execution.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="circle-description">Wallet Description (Optional)</Label>
+                    <Input
+                      id="circle-description"
+                      placeholder="e.g., Production Agent Wallet"
+                      value={circleWalletDescription}
+                      onChange={(e) => setCircleWalletDescription(e.target.value)}
+                      disabled={connectingCircle}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      A descriptive name for your Circle custodial wallet. Execution is handled by backend agents.
+                    </p>
+                  </div>
+                  <div className="rounded-md bg-muted p-3">
+                    <p className="text-xs text-muted-foreground">
+                      <strong>Note:</strong> This creates a custodial wallet managed by Circle. Private keys are never exposed to the frontend. All execution is handled securely by backend agents.
+                    </p>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => {
+                      setConnectCircleOpen(false);
+                      setCircleWalletDescription('');
+                    }}
+                    disabled={connectingCircle}
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    onClick={handleConnectCircleWallet} 
+                    disabled={connectingCircle}
+                  >
+                    {connectingCircle ? 'Connecting...' : 'Connect Wallet'}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+            <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Wallet
+                </Button>
+              </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Create New Wallet</DialogTitle>
@@ -204,7 +278,14 @@ export default function WalletsPage() {
                   </div>
                   <div>
                     <CardTitle className="text-base">{wallet.name}</CardTitle>
-                    <p className="text-xs text-muted-foreground capitalize">{wallet.chain}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs text-muted-foreground capitalize">{wallet.chain}</p>
+                      {wallet.id.startsWith('wallet_circle_') && (
+                        <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">
+                          Circle Custody
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <StatusChip status={wallet.status} />

@@ -37,4 +37,34 @@ export const walletsService = {
       byChain: result.by_chain,
     };
   },
+
+  async getWalletBalance(id: string): Promise<{
+    walletId: string;
+    chain: string;
+    native: { amount: string; currency: string };
+    tokens: Array<{ tokenAddress: string; amount: string; currency: string }>;
+  } | null> {
+    try {
+      return await apiClient.get(`/wallets/${id}/balance`);
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('404')) {
+        return null;
+      }
+      throw error;
+    }
+  },
+
+  async getWalletNetworks(id: string): Promise<string[]> {
+    try {
+      const result = await apiClient.get<{ networks: string[] }>(`/wallets/${id}/networks`);
+      return result.networks;
+    } catch (error) {
+      console.error('Failed to get wallet networks:', error);
+      return [];
+    }
+  },
+
+  async initializeCircleWallet(description?: string): Promise<Wallet> {
+    return apiClient.post<Wallet>('/wallets/circle/initialize', { description });
+  },
 };

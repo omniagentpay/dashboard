@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { PageHeader } from '@/components/PageHeader';
 import { StatusChip } from '@/components/StatusChip';
 import { JsonViewer } from '@/components/JsonViewer';
+import { CommandTerminal } from '@/components/CommandTerminal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -83,9 +84,10 @@ export default function AgentChatPage() {
 
       <div className="flex-1 flex gap-6 min-h-0">
         {/* Chat Area */}
-        <div className="flex-1 flex flex-col border rounded-lg bg-card overflow-hidden">
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="flex-1 flex flex-col gap-4 min-h-0">
+          <div className="flex-1 flex flex-col border rounded-lg bg-card overflow-hidden min-h-0">
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
             {messages.map((message) => (
               <div
                 key={message.id}
@@ -147,23 +149,29 @@ export default function AgentChatPage() {
                 </div>
               </div>
             )}
-            <div ref={messagesEndRef} />
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* Input */}
+            <div className="border-t p-4">
+              <div className="flex gap-2">
+                <Input
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Ask the agent to make a payment, check balances, or transfer funds..."
+                  className="flex-1"
+                />
+                <Button onClick={handleSend} disabled={!input.trim() || isTyping}>
+                  <Send className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
           </div>
 
-          {/* Input */}
-          <div className="border-t p-4">
-            <div className="flex gap-2">
-              <Input
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Ask the agent to make a payment, check balances, or transfer funds..."
-                className="flex-1"
-              />
-              <Button onClick={handleSend} disabled={!input.trim() || isTyping}>
-                <Send className="h-4 w-4" />
-              </Button>
-            </div>
+          {/* Command Terminal */}
+          <div className="h-80 shrink-0">
+            <CommandTerminal className="h-full" />
           </div>
         </div>
 
