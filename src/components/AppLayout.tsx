@@ -1,18 +1,25 @@
+import { lazy, Suspense, memo } from 'react';
 import { Outlet } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useApp } from '@/contexts/AppContext';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { AppSidebar } from '@/components/AppSidebar';
-import { AppNavbar } from '@/components/AppNavbar';
+import { PageLoader } from '@/components/PageLoader';
+import { PageTransition } from '@/components/PageTransition';
 
-export function AppLayout() {
+// Lazy load heavy components for better code splitting
+const AppSidebar = lazy(() => import('@/components/AppSidebar').then(m => ({ default: m.AppSidebar })));
+const AppNavbar = lazy(() => import('@/components/AppNavbar').then(m => ({ default: m.AppNavbar })));
+
+export const AppLayout = memo(function AppLayout() {
   const { sidebarCollapsed } = useApp();
   const isMobile = useIsMobile();
 
   return (
     <div className="min-h-screen bg-background">
-      <AppSidebar />
-      <AppNavbar />
+      <Suspense fallback={null}>
+        <AppSidebar />
+        <AppNavbar />
+      </Suspense>
       <main
         className={cn(
           'min-h-screen transition-all duration-200 ease-in-out pt-14',
@@ -23,10 +30,14 @@ export function AppLayout() {
               : 'ml-sidebar'
         )}
       >
-        <div className="page-container animate-fade-in">
-          <Outlet />
+        <div className="page-container">
+          <Suspense fallback={<PageLoader text="Loading page..." />}>
+            <PageTransition>
+              <Outlet />
+            </PageTransition>
+          </Suspense>
         </div>
       </main>
     </div>
   );
-}
+});

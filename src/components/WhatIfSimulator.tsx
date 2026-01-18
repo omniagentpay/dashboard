@@ -18,7 +18,7 @@ interface WhatIfSimulatorProps {
 export function WhatIfSimulator({ className }: WhatIfSimulatorProps) {
   const [amount, setAmount] = useState('');
   const [guardPresetId, setGuardPresetId] = useState<string>('none');
-  const [chain, setChain] = useState<ChainId>('ethereum');
+  const [chain] = useState<ChainId>('arc-testnet'); // ARC network only
   const [time, setTime] = useState('');
   const [result, setResult] = useState<WhatIfSimulationResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -58,33 +58,20 @@ export function WhatIfSimulator({ className }: WhatIfSimulatorProps) {
         <CardDescription>Test payment scenarios before execution</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="sim-amount">Amount (USDC)</Label>
-            <Input
-              id="sim-amount"
-              type="number"
-              placeholder="100"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="sim-chain">Chain</Label>
-            <Select value={chain} onValueChange={(v) => setChain(v as ChainId)}>
-              <SelectTrigger id="sim-chain">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ethereum">Ethereum</SelectItem>
-                <SelectItem value="polygon">Polygon</SelectItem>
-                <SelectItem value="arbitrum">Arbitrum</SelectItem>
-                <SelectItem value="optimism">Optimism</SelectItem>
-                <SelectItem value="base">Base</SelectItem>
-                <SelectItem value="avalanche">Avalanche</SelectItem>
-                <SelectItem value="solana">Solana</SelectItem>
-              </SelectContent>
-            </Select>
+        <div className="space-y-2">
+          <Label htmlFor="sim-amount">Amount (USDC)</Label>
+          <Input
+            id="sim-amount"
+            type="number"
+            placeholder="100"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Network</Label>
+          <div className="px-3 py-2 bg-muted rounded-md text-sm">
+            ARC Testnet
           </div>
         </div>
 

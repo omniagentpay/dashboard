@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { PageHeader } from '@/components/PageHeader';
 import { StatusChip } from '@/components/StatusChip';
 import { LoadingSkeleton } from '@/components/LoadingSkeleton';
@@ -26,6 +27,7 @@ import { Plus, Search, Filter, ExternalLink } from 'lucide-react';
 import { paymentsService } from '@/services/payments';
 import type { PaymentIntent } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
+import { InvoicePaymentCard } from '@/components/InvoicePaymentCard';
 
 export default function PaymentIntentsPage() {
   const [intents, setIntents] = useState<PaymentIntent[]>([]);
@@ -111,6 +113,11 @@ export default function PaymentIntentsPage() {
         onOpenChange={setCreateModalOpen}
         onSuccess={handleCreateSuccess}
       />
+
+      {/* Invoice Payment Card */}
+      <div className="mb-6">
+        <InvoicePaymentCard onIntentCreated={handleCreateSuccess} />
+      </div>
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 mb-6">

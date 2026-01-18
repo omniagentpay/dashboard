@@ -1,14 +1,19 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { PageHeader } from '@/components/PageHeader';
 import { StatusChip } from '@/components/StatusChip';
 import { JsonViewer } from '@/components/JsonViewer';
 import { CommandTerminal } from '@/components/CommandTerminal';
+import { AgentOrb } from '@/components/AgentOrb';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
-import { Send, Bot, User, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { Send, Bot, User, CheckCircle, XCircle, Loader2, AlertCircle } from 'lucide-react';
+import { toast } from 'sonner';
+import { formatDistanceToNow } from 'date-fns';
 import type { ChatMessage, PaymentIntent } from '@/types';
 import { paymentsService } from '@/services/payments';
+import { geminiService } from '@/services/gemini';
 import { cn } from '@/lib/utils';
 
 export default function AgentChatPage() {
@@ -28,9 +33,21 @@ export default function AgentChatPage() {
 
   useEffect(() => {
     loadPendingIntent();
+    
+    // Add welcome message if no messages and Gemini is configured
+    if (messages.length === 0 && geminiService.isConfigured()) {
+      const welcomeMessage: ChatMessage = {
+        id: 'welcome',
+        role: 'assistant',
+        content: "Hello! I'm your OmniAgentPay assistant. I can help you:\n\n• Check wallet balances\n• Create and execute payments\n• View transaction history\n• Simulate payments to check guard compliance\n\nWhat would you like to do?",
+        timestamp: new Date().toISOString(),
+      };
+      setMessages([welcomeMessage]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const loadPendingIntent = async () => {
+  const loadPendingIntent = useCallback(async () => {
     try {
       const intents = await paymentsService.getIntents();
       const pending = intents.find(i => i.status === 'awaiting_approval');
@@ -38,15 +55,81 @@ export default function AgentChatPage() {
     } catch (error) {
       console.error('Failed to load pending intent:', error);
     }
-  };
+  }, []);
 
-  const handleSend = async () => {
-    if (!input.trim()) return;
+  const handleQuickAction = useCallback(async (messageText: string) => {
+    if (isTyping || !geminiService.isConfigured()) return;
+
+    setIsTyping(true);
+
+    try {
+      const userMessage: ChatMessage = {
+        id: `msg_${Date.now()}`,
+        role: 'user',
+        content: messageText,
+        timestamp: new Date().toISOString(),
+      };
+
+      // Filter out welcome message when sending to Gemini
+      const conversationMessages = messages.filter(msg => msg.id !== 'welcome');
+      const currentMessages = [...conversationMessages, userMessage];
+      const response = await geminiService.chat(currentMessages);
+
+      const assistantMessage: ChatMessage = {
+        id: `msg_${Date.now() + 1}`,
+        role: 'assistant',
+        content: response.content,
+        timestamp: new Date().toISOString(),
+        toolCalls: response.toolCalls,
+      };
+
+      setMessages((prev) => [...prev, assistantMessage]);
+
+      if (response.toolCalls?.some(tc => 
+        ['create_payment_intent', 'approve_payment', 'execute_payment'].includes(tc.tool)
+      )) {
+        await loadPendingIntent();
+      }
+    } catch (error) {
+      console.error('Gemini chat error:', error);
+      
+      // Handle rate limit errors specifically
+      if (error instanceof Error && (error as any).rateLimitInfo) {
+        const rateLimitInfo = (error as any).rateLimitInfo;
+        const retryAfter = rateLimitInfo.retryAfter;
+        
+        let errorMessage = 'Rate limit exceeded. You\'ve made too many requests.';
+        if (retryAfter && retryAfter > 0) {
+          const minutes = Math.floor(retryAfter / 60);
+          const seconds = retryAfter % 60;
+          errorMessage += ` Please try again in ${minutes > 0 ? `${minutes} minute${minutes > 1 ? 's' : ''} and ` : ''}${seconds} second${seconds !== 1 ? 's' : ''}.`;
+        }
+        
+        toast.error(errorMessage, {
+          duration: 5000,
+        });
+      } else {
+        toast.error('Failed to get agent response. Please try again.');
+      }
+    } finally {
+      setIsTyping(false);
+    }
+  }, [messages, isTyping, loadPendingIntent]);
+
+  const handleSend = useCallback(async () => {
+    const messageText = input.trim();
+    if (!messageText || isTyping) return;
+
+    // Check if Gemini is configured
+    if (!geminiService.isConfigured()) {
+      toast.error('Gemini API key not configured. Please set VITE_GEMINI_API_KEY in your environment.');
+      return;
+    }
 
     const userMessage: ChatMessage = {
       id: `msg_${Date.now()}`,
       role: 'user',
-      content: input,
+      content: messageText,
       timestamp: new Date().toISOString(),
     };
 
@@ -54,18 +137,75 @@ export default function AgentChatPage() {
     setInput('');
     setIsTyping(true);
 
-    // Agent response would come from backend/MCP integration
-    setTimeout(() => {
+    try {
+      // Filter out welcome message when sending to Gemini
+      const conversationMessages = messages.filter(msg => msg.id !== 'welcome');
+      const currentMessages = [...conversationMessages, userMessage];
+      const response = await geminiService.chat(currentMessages);
+
       const assistantMessage: ChatMessage = {
         id: `msg_${Date.now() + 1}`,
         role: 'assistant',
-        content: "I'll help you with that. Let me check the current status and available options.",
+        content: response.content,
+        timestamp: new Date().toISOString(),
+        toolCalls: response.toolCalls,
+      };
+
+      setMessages((prev) => [...prev, assistantMessage]);
+
+      // Reload pending intent if payment was created/approved
+      if (response.toolCalls?.some(tc => 
+        ['create_payment_intent', 'approve_payment', 'execute_payment'].includes(tc.tool)
+      )) {
+        await loadPendingIntent();
+      }
+    } catch (error) {
+      console.error('Gemini chat error:', error);
+      
+      let errorContent = `I encountered an error: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again or check your configuration.`;
+      
+      // Handle rate limit errors specifically
+      if (error instanceof Error && (error as any).rateLimitInfo) {
+        const rateLimitInfo = (error as any).rateLimitInfo;
+        const retryAfter = rateLimitInfo.retryAfter;
+        const limits = rateLimitInfo.limits;
+        
+        errorContent = `Rate limit exceeded. You've made too many requests.\n\n`;
+        
+        if (limits) {
+          errorContent += `Current usage:\n`;
+          errorContent += `• Per minute: ${limits.minute.current}/${limits.minute.max}\n`;
+          errorContent += `• Per hour: ${limits.hour.current}/${limits.hour.max}\n`;
+          errorContent += `• Per day: ${limits.day.current}/${limits.day.max}\n\n`;
+        }
+        
+        if (retryAfter && retryAfter > 0) {
+          const minutes = Math.floor(retryAfter / 60);
+          const seconds = retryAfter % 60;
+          errorContent += `Please try again in ${minutes > 0 ? `${minutes} minute${minutes > 1 ? 's' : ''} and ` : ''}${seconds} second${seconds !== 1 ? 's' : ''}.`;
+        } else {
+          errorContent += `Please wait a moment before trying again.`;
+        }
+        
+        toast.error('Rate limit exceeded. Please wait before trying again.', {
+          duration: 5000,
+        });
+      } else {
+        toast.error('Failed to get agent response. Please try again.');
+      }
+      
+      const errorMessage: ChatMessage = {
+        id: `msg_${Date.now() + 1}`,
+        role: 'assistant',
+        content: errorContent,
         timestamp: new Date().toISOString(),
       };
-      setMessages((prev) => [...prev, assistantMessage]);
+      
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
       setIsTyping(false);
-    }, 1500);
-  };
+    }
+  }, [input, messages, isTyping, loadPendingIntent]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -83,40 +223,58 @@ export default function AgentChatPage() {
       />
 
       <div className="flex-1 flex gap-6 min-h-0">
-        {/* Chat Area */}
-        <div className="flex-1 flex flex-col gap-4 min-h-0">
-          <div className="flex-1 flex flex-col border rounded-lg bg-card overflow-hidden min-h-0">
+        {/* Chat Area - Narrower Left Container */}
+        <div className="w-[500px] flex flex-col min-h-0 relative shrink-0">
+          {/* Three.js Orb Background */}
+          <div className="absolute top-0 right-0 w-64 h-64 -z-10">
+            <AgentOrb />
+          </div>
+          
+          <div className="flex-1 flex flex-col border border-border rounded-lg bg-card overflow-hidden min-h-0 shadow-sm">
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {messages.map((message) => (
-              <div
+            <AnimatePresence>
+            {messages.map((message, index) => (
+              <motion.div
                 key={message.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2, delay: index * 0.02 }}
                 className={cn(
                   'flex gap-3',
                   message.role === 'user' ? 'justify-end' : 'justify-start'
                 )}
               >
                 {message.role === 'assistant' && (
-                  <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                  <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0 ring-1 ring-primary/20">
                     <Bot className="h-4 w-4 text-primary" />
                   </div>
                 )}
                 <div
                   className={cn(
-                    'max-w-[80%] rounded-lg px-4 py-2',
+                    'max-w-[80%] rounded-lg px-4 py-2.5 transition-all duration-200',
                     message.role === 'user'
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-muted'
+                      ? 'bg-primary text-primary-foreground shadow-sm'
+                      : 'bg-muted border border-border-subtle'
                   )}
                 >
-                  <p className="text-sm">{message.content}</p>
+                  <div className="flex items-start justify-between gap-2 mb-1">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      {message.role === 'user' ? 'You' : 'Agent'}
+                    </span>
+                    <span className="text-xs text-muted-foreground/70">
+                      {formatDistanceToNow(new Date(message.timestamp), { addSuffix: true })}
+                    </span>
+                  </div>
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
                   
                   {message.toolCalls && message.toolCalls.length > 0 && (
                     <div className="mt-3 space-y-2">
                       {message.toolCalls.map((call, idx) => (
-                        <div key={idx} className="rounded-md border bg-background p-3">
+                        <div key={idx} className="rounded-md border border-border bg-background p-3">
                           <div className="flex items-center gap-2 mb-2">
-                            <code className="text-xs font-mono bg-muted px-1.5 py-0.5 rounded">
+                            <code className="text-xs font-mono bg-muted px-2 py-0.5 rounded">
                               {call.tool}
                             </code>
                             {call.output && (
@@ -132,51 +290,56 @@ export default function AgentChatPage() {
                   )}
                 </div>
                 {message.role === 'user' && (
-                  <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center shrink-0">
+                  <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center shrink-0 ring-1 ring-border">
                     <User className="h-4 w-4" />
                   </div>
                 )}
-              </div>
+              </motion.div>
             ))}
+            </AnimatePresence>
             
             {isTyping && (
-              <div className="flex gap-3">
-                <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex gap-3"
+              >
+                <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center ring-1 ring-primary/20">
                   <Bot className="h-4 w-4 text-primary" />
                 </div>
-                <div className="bg-muted rounded-lg px-4 py-2">
+                <div className="bg-muted border border-border-subtle rounded-lg px-4 py-2">
                   <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                 </div>
-              </div>
+              </motion.div>
             )}
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Input */}
-            <div className="border-t p-4">
+            {/* Input - Premium Composer */}
+            <div className="border-t border-border p-4 bg-background-elevated">
               <div className="flex gap-2">
                 <Input
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
                   placeholder="Ask the agent to make a payment, check balances, or transfer funds..."
-                  className="flex-1"
+                  className="flex-1 bg-background"
                 />
-                <Button onClick={handleSend} disabled={!input.trim() || isTyping}>
+                <Button 
+                  onClick={handleSend} 
+                  disabled={!input.trim() || isTyping}
+                  size="icon"
+                  className="shrink-0"
+                >
                   <Send className="h-4 w-4" />
                 </Button>
               </div>
             </div>
           </div>
-
-          {/* Command Terminal */}
-          <div className="h-80 shrink-0">
-            <CommandTerminal className="h-full" />
-          </div>
         </div>
 
         {/* Side Panel - Pending Approval */}
-        <div className="w-80 space-y-4 shrink-0">
+        <div className="flex-1 space-y-4 min-w-0">
           {pendingIntent && (
             <Card>
               <CardContent className="p-4">
@@ -230,18 +393,60 @@ export default function AgentChatPage() {
             <CardContent className="p-4">
               <h3 className="font-semibold text-sm mb-3">Quick Actions</h3>
               <div className="space-y-2">
-                <Button variant="outline" size="sm" className="w-full justify-start" onClick={() => setInput('Check my wallet balances')}>
-                  Check balances
-                </Button>
-                <Button variant="outline" size="sm" className="w-full justify-start" onClick={() => setInput('Show recent transactions')}>
-                  Recent transactions
-                </Button>
-                <Button variant="outline" size="sm" className="w-full justify-start" onClick={() => setInput('Bridge 1000 USDC from Ethereum to Polygon')}>
-                  Bridge funds
-                </Button>
+                {[
+                  { label: 'Check balances', action: 'Check my wallet balances' },
+                  { label: 'Recent transactions', action: 'Show recent transactions' },
+                  { label: 'List wallets', action: 'List all my wallets' },
+                ].map((action, index) => (
+                  <motion.div
+                    key={action.label}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.2, delay: index * 0.05 }}
+                  >
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-full justify-start hover:bg-accent transition-all duration-200" 
+                      onClick={() => {
+                        const quickMessage: ChatMessage = {
+                          id: `msg_${Date.now()}`,
+                          role: 'user',
+                          content: action.action,
+                          timestamp: new Date().toISOString(),
+                        };
+                        setMessages(prev => [...prev, quickMessage]);
+                        handleQuickAction(action.action);
+                      }}
+                    >
+                      {action.label}
+                    </Button>
+                  </motion.div>
+                ))}
               </div>
             </CardContent>
           </Card>
+
+          {!geminiService.isConfigured() && (
+            <Card className="border-yellow-500/50 bg-yellow-500/10">
+              <CardContent className="p-4">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 text-yellow-600 mt-0.5 shrink-0" />
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-sm mb-1 text-yellow-600">Gemini Not Configured</h3>
+                    <p className="text-xs text-yellow-600/80">
+                      Set VITE_GEMINI_API_KEY in your .env file to enable AI agent features.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Command Terminal - Below Quick Actions */}
+          <div className="flex-1 min-h-0">
+            <CommandTerminal className="h-full" />
+          </div>
         </div>
       </div>
     </div>

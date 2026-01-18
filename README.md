@@ -84,8 +84,24 @@ npm run dev
 Create `.env` in the root directory:
 
 ```env
+# Privy Authentication
+# Get your App ID from https://dashboard.privy.io
+VITE_PRIVY_APP_ID=your_privy_app_id_here
+
+# API Configuration
 VITE_API_BASE_URL=http://localhost:3001/api
 ```
+
+#### Setting up Privy
+
+1. Sign up for a free account at [Privy](https://privy.io)
+2. Create a new app in the [Privy Dashboard](https://dashboard.privy.io)
+3. Copy your App ID and add it to your `.env` file as `VITE_PRIVY_APP_ID`
+4. Configure your app's allowed origins in the Privy dashboard (for production)
+
+The app supports multiple login methods:
+- Email
+- Wallet (Web3) - including Coinbase Wallet, MetaMask, WalletConnect, Rainbow, and Zerion
 
 ## Project Structure
 

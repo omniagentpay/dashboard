@@ -8,13 +8,16 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { Shield, CheckCircle, XCircle, Loader2, Info } from 'lucide-react';
+import { Shield, CheckCircle, XCircle, Loader2, Info, Sparkles } from 'lucide-react';
 import { guardsService } from '@/services/guards';
 import { WhatIfSimulator } from '@/components/WhatIfSimulator';
 import { BlastRadiusPreview } from '@/components/BlastRadiusPreview';
 import type { GuardConfig, GuardPreset } from '@/types';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { Textarea } from '@/components/ui/textarea';
+import { CodeSnippet } from '@/components/CodeSnippet';
+import { apiClient } from '@/lib/api-client';
 
 export default function GuardStudioPage() {
   const { toast } = useToast();
@@ -32,6 +35,15 @@ export default function GuardStudioPage() {
   } | null>(null);
   const [simulating, setSimulating] = useState(false);
   const [selectedGuardId, setSelectedGuardId] = useState<string | undefined>();
+  
+  // Policy builder state
+  const [policyText, setPolicyText] = useState('');
+  const [parsingPolicy, setParsingPolicy] = useState(false);
+  const [parsedPolicy, setParsedPolicy] = useState<{
+    policyId: string;
+    parsedRules: Record<string, unknown>;
+    preview: Array<{ scenario: string; result: string; reason: string }>;
+  } | null>(null);
 
   useEffect(() => {
     loadData();
@@ -135,6 +147,39 @@ export default function GuardStudioPage() {
     }
   };
 
+  const handleGeneratePolicy = async () => {
+    if (!policyText.trim()) {
+      toast({
+        title: 'Error',
+        description: 'Please enter policy text',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setParsingPolicy(true);
+    try {
+      const result = await apiClient.post<{
+        policyId: string;
+        parsedRules: Record<string, unknown>;
+        preview: Array<{ scenario: string; result: string; reason: string }>;
+      }>('/guards', { policyText });
+      setParsedPolicy(result);
+      toast({
+        title: 'Success',
+        description: 'Policy parsed successfully',
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to parse policy',
+        variant: 'destructive',
+      });
+    } finally {
+      setParsingPolicy(false);
+    }
+  };
+
   if (loading) {
     return (
       <div>
@@ -154,6 +199,84 @@ export default function GuardStudioPage() {
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Guards Configuration */}
         <div className="lg:col-span-2 space-y-6">
+          {/* Policy Builder */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Sparkles className="h-5 w-5" />
+                Policy Builder
+              </CardTitle>
+              <CardDescription>
+                Describe your payment policy in plain English
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="policy-text">Policy Description</Label>
+                <Textarea
+                  id="policy-text"
+                  placeholder="e.g., Max $2000 per day, max $500 per transaction, require approval above $1000, allow only vendor A and vendor B"
+                  value={policyText}
+                  onChange={(e) => setPolicyText(e.target.value)}
+                  rows={3}
+                  disabled={parsingPolicy}
+                />
+              </div>
+              
+              <Button
+                onClick={handleGeneratePolicy}
+                disabled={parsingPolicy || !policyText.trim()}
+                className="w-full"
+              >
+                {parsingPolicy ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Generating Policy...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Generate Policy
+                  </>
+                )}
+              </Button>
+
+              {parsedPolicy && (
+                <div className="space-y-4 pt-4 border-t">
+                  <div>
+                    <Label className="text-sm font-medium mb-2 block">Parsed Rules</Label>
+                    <CodeSnippet
+                      code={JSON.stringify(parsedPolicy.parsedRules, null, 2)}
+                      language="json"
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label className="text-sm font-medium mb-2 block">Preview Examples</Label>
+                    <div className="space-y-2">
+                      {parsedPolicy.preview.map((example, idx) => (
+                        <div key={idx} className="p-3 border rounded-md text-sm">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="font-medium">{example.scenario}</span>
+                            <Badge
+                              variant={
+                                example.result === 'allow' ? 'default' :
+                                example.result === 'block' ? 'destructive' : 'secondary'
+                              }
+                            >
+                              {example.result}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground">{example.reason}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Presets */}
           <Card>
             <CardHeader>

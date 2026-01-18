@@ -31,7 +31,7 @@ export const x402Service = {
       recipientAddress: `0x${api.provider.toLowerCase().replace(/\s/g, '')}...1234`,
       description: `x402 API call: ${api.name}`,
       walletId,
-      chain: 'ethereum',
+      chain: 'arc-testnet',
     });
 
     const result = await apiClient.post<{ data: unknown; latency: number }>(`/x402/${apiId}/call`, {

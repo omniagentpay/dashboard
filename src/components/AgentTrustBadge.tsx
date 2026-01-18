@@ -17,10 +17,10 @@ const trustIcons = {
 };
 
 const trustColors = {
-  trusted: 'bg-green-50 text-green-700 border-green-200',
-  verified: 'bg-blue-50 text-blue-700 border-blue-200',
-  new: 'bg-gray-50 text-gray-700 border-gray-200',
-  flagged: 'bg-red-50 text-red-700 border-red-200',
+  trusted: 'bg-success/10 text-success border-success/30 dark:bg-success/20 dark:border-success/40',
+  verified: 'bg-primary/10 text-primary border-primary/30 dark:bg-primary/20 dark:border-primary/40',
+  new: 'bg-muted text-muted-foreground border-border',
+  flagged: 'bg-destructive/10 text-destructive border-destructive/30 dark:bg-destructive/20 dark:border-destructive/40',
 };
 
 const riskTierLabels = {

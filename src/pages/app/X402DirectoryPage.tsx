@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { PageHeader } from '@/components/PageHeader';
 import { LoadingSkeleton } from '@/components/LoadingSkeleton';
 import { EmptyState } from '@/components/EmptyState';
@@ -135,8 +136,14 @@ export default function X402DirectoryPage() {
         />
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredApis.map((api) => (
-          <Card key={api.id} className="hover:shadow-sm transition-shadow">
+          {filteredApis.map((api, index) => (
+          <motion.div
+            key={api.id}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: index * 0.05 }}
+          >
+          <Card className="hover:shadow-md transition-all duration-200">
             <CardHeader className="pb-2">
               <div className="flex items-start justify-between">
                 <div>
@@ -189,6 +196,7 @@ export default function X402DirectoryPage() {
               </div>
             </CardContent>
           </Card>
+          </motion.div>
           ))}
         </div>
       )}

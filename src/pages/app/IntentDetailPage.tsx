@@ -20,6 +20,7 @@ import { paymentsService } from '@/services/payments';
 import { agentsService } from '@/services/agents';
 import type { PaymentIntent, ApprovalAction, Agent } from '@/types';
 import { cn } from '@/lib/utils';
+import { ReceiptDrawer } from '@/components/ReceiptDrawer';
 
 export default function IntentDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -28,6 +29,7 @@ export default function IntentDetailPage() {
   const [executing, setExecuting] = useState(false);
   const [explainDrawerOpen, setExplainDrawerOpen] = useState(false);
   const [approvalModalOpen, setApprovalModalOpen] = useState(false);
+  const [receiptDrawerOpen, setReceiptDrawerOpen] = useState(false);
   const [agent, setAgent] = useState<Agent | null>(null);
 
   useEffect(() => {
@@ -155,6 +157,14 @@ export default function IntentDetailPage() {
               <Info className="h-4 w-4 mr-2" />
               Explain
             </Button>
+            <Button
+              variant="outline"
+              onClick={() => setReceiptDrawerOpen(true)}
+              aria-label="View receipt"
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              Receipt
+            </Button>
             {intent.status === 'awaiting_approval' && (
               <Button
                 onClick={() => setApprovalModalOpen(true)}
@@ -180,6 +190,12 @@ export default function IntentDetailPage() {
         intentId={intent.id}
         open={explainDrawerOpen}
         onOpenChange={setExplainDrawerOpen}
+      />
+
+      <ReceiptDrawer
+        open={receiptDrawerOpen}
+        onOpenChange={setReceiptDrawerOpen}
+        intentId={intent.id}
       />
 
       <ApprovalModal

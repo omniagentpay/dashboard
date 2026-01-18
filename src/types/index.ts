@@ -1,7 +1,7 @@
 export type WalletStatus = 'active' | 'inactive' | 'pending';
-export type PaymentStatus = 'pending' | 'simulating' | 'awaiting_approval' | 'executing' | 'succeeded' | 'failed' | 'blocked';
+export type PaymentStatus = 'pending' | 'simulating' | 'awaiting_approval' | 'requires_approval' | 'approved' | 'executing' | 'succeeded' | 'failed' | 'blocked';
 export type TransactionStatus = 'succeeded' | 'pending' | 'failed' | 'blocked';
-export type ChainId = 'ethereum' | 'polygon' | 'arbitrum' | 'optimism' | 'base' | 'avalanche' | 'solana';
+export type ChainId = 'arc-testnet';
 export type RouteType = 'auto' | 'cctp' | 'gateway' | 'bridge_kit';
 
 export interface Wallet {

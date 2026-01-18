@@ -1,10 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { PageHeader } from '@/components/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,18 +14,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { useApp } from '@/contexts/AppContext';
 import { useToast } from '@/hooks/use-toast';
-import { workspacesService, type ApiKeyListItem } from '@/services/workspaces';
-import { CopyButton } from '@/components/CopyButton';
+import { workspacesService } from '@/services/workspaces';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
 
@@ -34,62 +24,8 @@ export default function SettingsPage() {
   const { workspace, setWorkspace } = useApp();
   const { toast } = useToast();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [apiKeyDialogOpen, setApiKeyDialogOpen] = useState(false);
-  const [generatedApiKey, setGeneratedApiKey] = useState<string | null>(null);
-  const [apiKeys, setApiKeys] = useState<ApiKeyListItem[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [generatingKey, setGeneratingKey] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Load API keys on mount
-  useEffect(() => {
-    loadApiKeys();
-  }, [workspace.id]);
-
-  const loadApiKeys = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const keys = await workspacesService.getApiKeys(workspace.id);
-      setApiKeys(keys);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to load API keys';
-      setError(errorMessage);
-      toast({
-        title: 'Error',
-        description: errorMessage,
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleGenerateApiKey = async () => {
-    try {
-      setGeneratingKey(true);
-      setError(null);
-      const result = await workspacesService.generateApiKey(workspace.id);
-      setGeneratedApiKey(result.key);
-      setApiKeyDialogOpen(true);
-      await loadApiKeys();
-      toast({
-        title: 'Success',
-        description: 'API key generated successfully',
-      });
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to generate API key';
-      setError(errorMessage);
-      toast({
-        title: 'Error',
-        description: errorMessage,
-        variant: 'destructive',
-      });
-    } finally {
-      setGeneratingKey(false);
-    }
-  };
 
   const handleDeleteWorkspace = async () => {
     try {
@@ -154,50 +90,6 @@ export default function SettingsPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">API Keys</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Manage API keys for programmatic access to OmniAgentPay.
-            </p>
-            <Button 
-              variant="outline" 
-              onClick={handleGenerateApiKey}
-              disabled={generatingKey}
-            >
-              {generatingKey ? 'Generating...' : 'Generate New API Key'}
-            </Button>
-
-            {loading ? (
-              <p className="text-sm text-muted-foreground">Loading API keys...</p>
-            ) : apiKeys.length > 0 ? (
-              <div className="space-y-2">
-                <Label>Existing API Keys</Label>
-                <div className="space-y-2">
-                  {apiKeys.map((key) => (
-                    <div
-                      key={key.id}
-                      className="flex items-center justify-between p-3 border rounded-md"
-                    >
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">{key.name || 'Unnamed Key'}</p>
-                        <p className="text-xs text-muted-foreground font-mono">{key.key}</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Created: {new Date(key.createdAt).toLocaleDateString()}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">No API keys generated yet.</p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
             <CardTitle className="text-base text-destructive">Danger Zone</CardTitle>
           </CardHeader>
           <CardContent>
@@ -250,34 +142,6 @@ export default function SettingsPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* API Key Display Dialog */}
-      <Dialog open={apiKeyDialogOpen} onOpenChange={setApiKeyDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>API Key Generated</DialogTitle>
-            <DialogDescription>
-              Your new API key has been generated. Make sure to copy it now as you won't be able to see it again.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="flex items-center gap-2 p-3 bg-muted rounded-md">
-              <code className="flex-1 text-sm font-mono break-all">
-                {generatedApiKey}
-              </code>
-              {generatedApiKey && <CopyButton value={generatedApiKey} />}
-            </div>
-            <Alert>
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                Store this key securely. It will not be shown again.
-              </AlertDescription>
-            </Alert>
-          </div>
-          <DialogFooter>
-            <Button onClick={() => setApiKeyDialogOpen(false)}>I've copied the key</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

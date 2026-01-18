@@ -1,61 +1,221 @@
+import { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { ThemeProvider } from "next-themes";
 import { AppProvider } from "@/contexts/AppContext";
 import { AppLayout } from "@/components/AppLayout";
-import Index from "./pages/Index";
-import NotFound from "./pages/NotFound";
+import { PageLoader } from "@/components/PageLoader";
+import { PrivyProvider } from "@/components/PrivyProvider";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { AuthHeader } from "@/components/AuthHeader";
 
-// App pages
-import DashboardPage from "./pages/app/DashboardPage";
-import AgentChatPage from "./pages/app/AgentChatPage";
-import PaymentIntentsPage from "./pages/app/PaymentIntentsPage";
-import IntentDetailPage from "./pages/app/IntentDetailPage";
-import WalletsPage from "./pages/app/WalletsPage";
-import WalletDetailPage from "./pages/app/WalletDetailPage";
-import CrossChainPage from "./pages/app/CrossChainPage";
-import X402DirectoryPage from "./pages/app/X402DirectoryPage";
-import TransactionsPage from "./pages/app/TransactionsPage";
-import GuardStudioPage from "./pages/app/GuardStudioPage";
-import DevelopersPage from "./pages/app/DevelopersPage";
-import SettingsPage from "./pages/app/SettingsPage";
+// Lazy load pages for code splitting
+const Index = lazy(() => import("./pages/Index"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const LoginPage = lazy(() => import("./pages/LoginPage"));
+const SecuritySetupPage = lazy(() => import("./pages/SecuritySetupPage"));
 
-const queryClient = new QueryClient();
+// Lazy load app pages
+const DashboardPage = lazy(() => import("./pages/app/DashboardPage"));
+const AgentChatPage = lazy(() => import("./pages/app/AgentChatPage"));
+const PaymentIntentsPage = lazy(() => import("./pages/app/PaymentIntentsPage"));
+const IntentDetailPage = lazy(() => import("./pages/app/IntentDetailPage"));
+const WalletsPage = lazy(() => import("./pages/app/WalletsPage"));
+const WalletDetailPage = lazy(() => import("./pages/app/WalletDetailPage"));
+const CrossChainPage = lazy(() => import("./pages/app/CrossChainPage"));
+const X402DirectoryPage = lazy(() => import("./pages/app/X402DirectoryPage"));
+const TransactionsPage = lazy(() => import("./pages/app/TransactionsPage"));
+const GuardStudioPage = lazy(() => import("./pages/app/GuardStudioPage"));
+const DevelopersPage = lazy(() => import("./pages/app/DevelopersPage"));
+const CommercePluginsPage = lazy(() => import("./pages/app/CommercePluginsPage"));
+const SettingsPage = lazy(() => import("./pages/app/SettingsPage"));
+
+// Optimized QueryClient with better defaults
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 minutes
+      gcTime: 1000 * 60 * 10, // 10 minutes (formerly cacheTime)
+      refetchOnWindowFocus: false,
+      retry: 1,
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    },
+  },
+});
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <AppProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            
-            {/* App routes with shared layout */}
-            <Route path="/app" element={<AppLayout />}>
-              <Route index element={<DashboardPage />} />
-              <Route path="agent" element={<AgentChatPage />} />
-              <Route path="intents" element={<PaymentIntentsPage />} />
-              <Route path="intents/:id" element={<IntentDetailPage />} />
-              <Route path="wallets" element={<WalletsPage />} />
-              <Route path="wallets/:id" element={<WalletDetailPage />} />
-              <Route path="crosschain" element={<CrossChainPage />} />
-              <Route path="x402" element={<X402DirectoryPage />} />
-              <Route path="transactions" element={<TransactionsPage />} />
-              <Route path="guards" element={<GuardStudioPage />} />
-              <Route path="developers" element={<DevelopersPage />} />
-              <Route path="settings" element={<SettingsPage />} />
-            </Route>
+  <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+    <PrivyProvider>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <AppProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+            <Suspense fallback={<PageLoader />}>
+              <AuthHeader />
+              <Routes>
+              <Route 
+                path="/" 
+                element={
+                  <Suspense fallback={<PageLoader />}>
+                    <Index />
+                  </Suspense>
+                } 
+              />
+                
+                <Route 
+                  path="/login" 
+                  element={
+                    <Suspense fallback={<PageLoader />}>
+                      <LoginPage />
+                    </Suspense>
+                  } 
+                />
 
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+                <Route 
+                  path="/security-setup" 
+                  element={
+                    <Suspense fallback={<PageLoader />}>
+                      <SecuritySetupPage />
+                    </Suspense>
+                  } 
+                />
+                
+                {/* App routes with shared layout - protected */}
+                <Route 
+                  path="/app" 
+                  element={
+                    <ProtectedRoute>
+                      <AppLayout />
+                    </ProtectedRoute>
+                  }
+                >
+                  <Route 
+                  index 
+                  element={
+                    <Suspense fallback={<PageLoader />}>
+                      <DashboardPage />
+                    </Suspense>
+                  } 
+                />
+                <Route 
+                  path="agent" 
+                  element={
+                    <Suspense fallback={<PageLoader />}>
+                      <AgentChatPage />
+                    </Suspense>
+                  } 
+                />
+                <Route 
+                  path="intents" 
+                  element={
+                    <Suspense fallback={<PageLoader />}>
+                      <PaymentIntentsPage />
+                    </Suspense>
+                  } 
+                />
+                <Route 
+                  path="intents/:id" 
+                  element={
+                    <Suspense fallback={<PageLoader />}>
+                      <IntentDetailPage />
+                    </Suspense>
+                  } 
+                />
+                <Route 
+                  path="wallets" 
+                  element={
+                    <Suspense fallback={<PageLoader />}>
+                      <WalletsPage />
+                    </Suspense>
+                  } 
+                />
+                <Route 
+                  path="wallets/:id" 
+                  element={
+                    <Suspense fallback={<PageLoader />}>
+                      <WalletDetailPage />
+                    </Suspense>
+                  } 
+                />
+                <Route 
+                  path="crosschain" 
+                  element={
+                    <Suspense fallback={<PageLoader />}>
+                      <CrossChainPage />
+                    </Suspense>
+                  } 
+                />
+                <Route 
+                  path="x402" 
+                  element={
+                    <Suspense fallback={<PageLoader />}>
+                      <X402DirectoryPage />
+                    </Suspense>
+                  } 
+                />
+                <Route 
+                  path="transactions" 
+                  element={
+                    <Suspense fallback={<PageLoader />}>
+                      <TransactionsPage />
+                    </Suspense>
+                  } 
+                />
+                <Route 
+                  path="guards" 
+                  element={
+                    <Suspense fallback={<PageLoader />}>
+                      <GuardStudioPage />
+                    </Suspense>
+                  } 
+                />
+                <Route 
+                  path="developers" 
+                  element={
+                    <Suspense fallback={<PageLoader />}>
+                      <DevelopersPage />
+                    </Suspense>
+                  } 
+                />
+                <Route 
+                  path="integrations" 
+                  element={
+                    <Suspense fallback={<PageLoader />}>
+                      <CommercePluginsPage />
+                    </Suspense>
+                  } 
+                />
+                <Route 
+                  path="settings" 
+                  element={
+                    <Suspense fallback={<PageLoader />}>
+                      <SettingsPage />
+                    </Suspense>
+                  } 
+                />
+              </Route>
+
+              <Route 
+                path="*" 
+                element={
+                  <Suspense fallback={<PageLoader />}>
+                    <NotFound />
+                  </Suspense>
+                } 
+              />
+            </Routes>
+          </Suspense>
         </BrowserRouter>
       </AppProvider>
     </TooltipProvider>
   </QueryClientProvider>
+  </PrivyProvider>
+  </ThemeProvider>
 );
 
 export default App;

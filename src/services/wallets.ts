@@ -2,8 +2,11 @@ import type { Wallet } from '@/types';
 import { apiClient } from '@/lib/api-client';
 
 export const walletsService = {
-  async getWallets(): Promise<Wallet[]> {
-    return apiClient.get<Wallet[]>('/wallets');
+  async getWallets(walletAddresses?: string[]): Promise<Wallet[]> {
+    const params = walletAddresses && walletAddresses.length > 0
+      ? { addresses: walletAddresses }
+      : {};
+    return apiClient.get<Wallet[]>('/wallets', { params });
   },
 
   async getWallet(id: string): Promise<Wallet | null> {
@@ -30,8 +33,11 @@ export const walletsService = {
     throw new Error('Fund wallet not yet implemented');
   },
 
-  async getUnifiedBalance(): Promise<{ total: number; byChain: Record<string, number> }> {
-    const result = await apiClient.get<{ total: number; by_chain: Record<string, number> }>('/wallets/balance/unified');
+  async getUnifiedBalance(walletAddresses?: string[]): Promise<{ total: number; byChain: Record<string, number> }> {
+    const params = walletAddresses && walletAddresses.length > 0
+      ? { addresses: walletAddresses }
+      : {};
+    const result = await apiClient.get<{ total: number; by_chain: Record<string, number> }>('/wallets/balance/unified', { params });
     return {
       total: result.total,
       byChain: result.by_chain,

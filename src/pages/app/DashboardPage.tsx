@@ -200,7 +200,7 @@ export default function DashboardPage() {
       {/* Hero Status Banner */}
       <AgentStatusBanner agentsRequiringAttention={agentsRequiringAttention} />
 
-      {/* Metrics Grid - Equal height cards enforced */}
+      {/* Metrics Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
         <MetricCard
           label="Spend Today"
@@ -248,77 +248,81 @@ export default function DashboardPage() {
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Pending Approvals */}
         <Card>
-          <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-2">
-            <CardTitle className="text-base font-semibold">Pending Approvals</CardTitle>
-            <Link to="/app/intents">
-              <Button variant="ghost" size="sm" className="text-xs touch-manipulation">
-                View all <ArrowRight className="h-3 w-3 ml-1" />
-              </Button>
-            </Link>
-          </CardHeader>
-          <CardContent>
-            {pendingIntents.length === 0 ? (
-              <div className="py-6 text-center">
-                <CheckCircle2 className="h-8 w-8 text-muted-foreground mx-auto mb-2 opacity-50" />
-                <p className="text-sm font-medium text-foreground mb-1">No pending approvals</p>
-                <p className="text-xs text-muted-foreground">
-                  Guard policies are auto-handling spend
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {pendingIntents.map((intent) => (
-                  <div
-                    key={intent.id}
-                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 rounded-lg border bg-card hover:bg-muted/30 transition-colors"
-                  >
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <div className="h-10 w-10 rounded-full bg-warning/10 flex items-center justify-center shrink-0">
-                        <Clock className="h-5 w-5 text-warning" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="font-medium text-sm break-words">${intent.amount.toLocaleString()} to {intent.recipient}</p>
-                        <p className="text-xs text-muted-foreground break-words">{intent.description}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <StatusChip status={intent.status} />
-                      <Link to={`/app/intents/${intent.id}`}>
-                        <Button size="sm" variant="outline" className="touch-manipulation">
-                          Review
-                        </Button>
-                      </Link>
-                    </div>
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-2">
+              <CardTitle className="text-base font-semibold">Pending Approvals</CardTitle>
+              <Link to="/app/intents">
+                <Button variant="ghost" size="sm" className="text-xs touch-manipulation">
+                  View all <ArrowRight className="h-3 w-3 ml-1" />
+                </Button>
+              </Link>
+            </CardHeader>
+            <CardContent>
+              {pendingIntents.length === 0 ? (
+                <div className="py-8 text-center">
+                  <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-success/10 mb-3">
+                    <CheckCircle2 className="h-6 w-6 text-success" />
                   </div>
-                ))}
-              </div>
+                  <p className="text-sm font-medium text-foreground mb-1">No pending approvals</p>
+                  <p className="text-xs text-muted-foreground">
+                    Guard policies are auto-handling spend
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {pendingIntents.map((intent) => (
+                    <div
+                      key={intent.id}
+                      className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 rounded-lg border bg-card hover:bg-muted/30 transition-colors"
+                    >
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div className="h-10 w-10 rounded-full bg-warning/10 flex items-center justify-center shrink-0 ring-1 ring-warning/20">
+                          <Clock className="h-5 w-5 text-warning" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-sm break-words">${intent.amount.toLocaleString()} to {intent.recipient}</p>
+                          <p className="text-xs text-muted-foreground break-words">{intent.description}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <StatusChip status={intent.status} />
+                        <Link to={`/app/intents/${intent.id}`}>
+                          <Button size="sm" variant="outline" className="touch-manipulation">
+                            Review
+                          </Button>
+                        </Link>
+                      </div>
+                    </div>
+                  ))}
+                </div>
             )}
           </CardContent>
         </Card>
 
         {/* Recent Activity */}
         <Card>
-          <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-2">
-            <CardTitle className="text-base font-semibold">Recent Activity</CardTitle>
-            <Link to="/app/transactions">
-              <Button variant="ghost" size="sm" className="text-xs touch-manipulation">
-                View all <ArrowRight className="h-3 w-3 ml-1" />
-              </Button>
-            </Link>
-          </CardHeader>
-          <CardContent>
-            <div className="mb-4">
-              <ActivitySparkline data={activitySparklineData} />
-            </div>
-            {recentTransactions.length === 0 && microEvents.length === 0 ? (
-              <div className="py-6 text-center">
-                <Zap className="h-8 w-8 text-muted-foreground mx-auto mb-2 opacity-50" />
-                <p className="text-sm font-medium text-foreground mb-1">No recent activity</p>
-                <p className="text-xs text-muted-foreground">
-                  System is idle and within limits
-                </p>
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-2">
+              <CardTitle className="text-base font-semibold">Recent Activity</CardTitle>
+              <Link to="/app/transactions">
+                <Button variant="ghost" size="sm" className="text-xs touch-manipulation">
+                  View all <ArrowRight className="h-3 w-3 ml-1" />
+                </Button>
+              </Link>
+            </CardHeader>
+            <CardContent>
+              <div className="mb-4">
+                <ActivitySparkline data={activitySparklineData} />
               </div>
-            ) : (
+              {recentTransactions.length === 0 && microEvents.length === 0 ? (
+                <div className="py-8 text-center">
+                  <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-muted/50 mb-3">
+                    <Zap className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                  <p className="text-sm font-medium text-foreground mb-1">No recent activity</p>
+                  <p className="text-xs text-muted-foreground">
+                    System is idle and within limits
+                  </p>
+                </div>
+              ) : (
               <div className="space-y-3">
                 {/* Show micro-events first if available */}
                 {microEvents.length > 0 && (

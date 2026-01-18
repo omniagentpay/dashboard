@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { PageHeader } from '@/components/PageHeader';
 import { StatusChip } from '@/components/StatusChip';
 import { Button } from '@/components/ui/button';
@@ -12,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ArrowRight, Info, CheckCircle, Clock, Loader2 } from 'lucide-react';
+import { ArrowRight, Info, CheckCircle, Clock, Loader2, Sparkles } from 'lucide-react';
 import { crosschainService } from '@/services/crosschain';
 import type { ChainId, RouteType, CrossChainTransfer } from '@/types';
 import { cn } from '@/lib/utils';
@@ -21,8 +22,8 @@ const CHAINS = crosschainService.getChainNames();
 const ROUTES = crosschainService.getRouteInfo();
 
 export default function CrossChainPage() {
-  const [sourceChain, setSourceChain] = useState<ChainId>('ethereum');
-  const [destChain, setDestChain] = useState<ChainId>('polygon');
+  const [sourceChain, setSourceChain] = useState<ChainId>('arc-testnet');
+  const [destChain, setDestChain] = useState<ChainId>('arc-testnet');
   const [amount, setAmount] = useState('');
   const [destAddress, setDestAddress] = useState('');
   const [selectedRoute, setSelectedRoute] = useState<RouteType>('auto');
@@ -90,51 +91,25 @@ export default function CrossChainPage() {
     <div>
       <PageHeader
         title="Cross-chain Transfers"
-        description="Bridge USDC across chains using CCTP and Gateway"
+        description="ARC Network - Single chain transfers only"
       />
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Transfer Form */}
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 space-y-6">
           <Card>
             <CardHeader>
               <CardTitle className="text-base">New Transfer</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Chain Selection */}
-              <div className="grid grid-cols-[1fr,auto,1fr] gap-4 items-end">
-                <div className="space-y-2">
-                  <Label>Source Chain</Label>
-                  <Select value={sourceChain} onValueChange={(v) => setSourceChain(v as ChainId)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(CHAINS).map(([id, name]) => (
-                        <SelectItem key={id} value={id} disabled={id === destChain}>
-                          {name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+              {/* Network Info */}
+              <div className="rounded-lg bg-muted p-4 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Info className="h-4 w-4 text-muted-foreground" />
+                  <Label className="text-sm font-medium">Network</Label>
                 </div>
-                <div className="pb-2">
-                  <ArrowRight className="h-5 w-5 text-muted-foreground" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Destination Chain</Label>
-                  <Select value={destChain} onValueChange={(v) => setDestChain(v as ChainId)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(CHAINS).map(([id, name]) => (
-                        <SelectItem key={id} value={id} disabled={id === sourceChain}>
-                          {name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <div className="px-3 py-2 bg-background rounded-md text-sm">
+                  ARC Testnet (ARC-only hackathon - cross-chain transfers not available)
                 </div>
               </div>
 
@@ -163,23 +138,37 @@ export default function CrossChainPage() {
               <div className="space-y-2">
                 <Label>Route Preference</Label>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                  {Object.entries(ROUTES).map(([id, info]) => (
-                    <button
-                      key={id}
-                      onClick={() => setSelectedRoute(id as RouteType)}
-                      className={cn(
-                        'p-3 rounded-lg border text-left transition-colors',
-                        selectedRoute === id
-                          ? 'border-primary bg-primary/5'
-                          : 'hover:bg-muted'
-                      )}
-                    >
-                      <p className="font-medium text-sm">{info.name}</p>
-                      <p className="text-xs text-muted-foreground line-clamp-2">
-                        {info.description}
-                      </p>
-                    </button>
-                  ))}
+                  {Object.entries(ROUTES).map(([id, info]) => {
+                    const isSelected = selectedRoute === id;
+                    const prefersReducedMotion = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                    
+                    return (
+                      <motion.button
+                        key={id}
+                        onClick={() => setSelectedRoute(id as RouteType)}
+                        className={cn(
+                          'p-3 rounded-lg border text-left transition-colors',
+                          isSelected
+                            ? 'border-primary bg-primary/5'
+                            : 'hover:bg-muted'
+                        )}
+                        whileHover={prefersReducedMotion ? {} : {
+                          y: -2,
+                          transition: { duration: 0.15, ease: "easeOut" }
+                        }}
+                        whileTap={prefersReducedMotion ? {} : {
+                          scale: 0.98,
+                          transition: { duration: 0.1, ease: "easeOut" }
+                        }}
+                        transition={{ duration: 0.2, ease: "easeOut" }}
+                      >
+                        <p className="font-medium text-sm">{info.name}</p>
+                        <p className="text-xs text-muted-foreground line-clamp-2">
+                          {info.description}
+                        </p>
+                      </motion.button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -197,8 +186,15 @@ export default function CrossChainPage() {
           </Card>
 
           {/* Route Explanation */}
-          {routeEstimate && (
-            <Card className="mt-6">
+          <AnimatePresence>
+            {routeEstimate && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.2, ease: "easeOut" }}
+              >
+                <Card className="mt-6">
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
                   <Info className="h-4 w-4" />
@@ -247,7 +243,9 @@ export default function CrossChainPage() {
                 </Button>
               </CardContent>
             </Card>
-          )}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* Recent Transfers */}

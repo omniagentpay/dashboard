@@ -1,103 +1,94 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { PageHeader } from '@/components/PageHeader';
 import { StatusChip } from '@/components/StatusChip';
 import { CopyButton } from '@/components/CopyButton';
 import { LoadingSkeleton } from '@/components/LoadingSkeleton';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Plus, Wallet, ExternalLink, ArrowUpRight, Shield } from 'lucide-react';
+import { Wallet, ExternalLink, ArrowUpRight } from 'lucide-react';
 import { walletsService } from '@/services/wallets';
-import type { Wallet as WalletType, ChainId } from '@/types';
-
-const CHAINS: { value: ChainId; label: string }[] = [
-  { value: 'ethereum', label: 'Ethereum' },
-  { value: 'polygon', label: 'Polygon' },
-  { value: 'arbitrum', label: 'Arbitrum' },
-  { value: 'optimism', label: 'Optimism' },
-  { value: 'base', label: 'Base' },
-  { value: 'avalanche', label: 'Avalanche' },
-];
+import type { Wallet as WalletType } from '@/types';
 
 export default function WalletsPage() {
+  const { user, authenticated } = usePrivy();
+  const { wallets: privyWallets } = useWallets();
   const [wallets, setWallets] = useState<WalletType[]>([]);
   const [loading, setLoading] = useState(true);
   const [unifiedBalance, setUnifiedBalance] = useState<{ total: number; byChain: Record<string, number> } | null>(null);
-  const [createOpen, setCreateOpen] = useState(false);
-  const [newWalletName, setNewWalletName] = useState('');
-  const [newWalletChain, setNewWalletChain] = useState<ChainId>('ethereum');
-  const [newWalletAddress, setNewWalletAddress] = useState('');
-  const [creating, setCreating] = useState(false);
-  const [connectCircleOpen, setConnectCircleOpen] = useState(false);
-  const [connectingCircle, setConnectingCircle] = useState(false);
-  const [circleWalletDescription, setCircleWalletDescription] = useState('');
 
   useEffect(() => {
-    loadData();
-  }, []);
+    if (authenticated) {
+      loadData();
+    }
+  }, [authenticated, privyWallets]);
 
   const loadData = async () => {
     setLoading(true);
-    const [walletsData, balanceData] = await Promise.all([
-      walletsService.getWallets(),
-      walletsService.getUnifiedBalance(),
-    ]);
-    setWallets(walletsData);
-    setUnifiedBalance(balanceData);
-    setLoading(false);
-  };
-
-  const handleCreateWallet = async () => {
-    if (!newWalletName.trim()) return;
-    setCreating(true);
     try {
-      await walletsService.createWallet({ 
-        name: newWalletName, 
-        chain: newWalletChain,
-        address: newWalletAddress.trim() || undefined,
-      });
-      await loadData();
-      setCreateOpen(false);
-      setNewWalletName('');
-      setNewWalletAddress('');
+      // Get wallet addresses from Privy
+      const walletAddresses = privyWallets.map(pw => pw.address);
+      
+      if (walletAddresses.length === 0) {
+        setWallets([]);
+        setUnifiedBalance({ total: 0, byChain: {} });
+        setLoading(false);
+        return;
+      }
+      
+      // Get balance from ARC network using Privy wallets
+      const balanceData = await walletsService.getUnifiedBalance(walletAddresses);
+      setUnifiedBalance(balanceData);
+      
+      // Fetch wallets with balances from backend
+      const walletsData = await walletsService.getWallets(walletAddresses);
+      
+      // If backend doesn't return wallets, create them from Privy wallets
+      if (walletsData.length === 0) {
+        const mappedWallets: WalletType[] = await Promise.all(
+          privyWallets.map(async (pw, index) => {
+            try {
+              const balance = await walletsService.getWalletBalance(pw.address);
+              const usdcToken = balance?.tokens.find(t => t.currency === 'USDC');
+              return {
+                id: pw.address,
+                name: pw.walletClientType === 'privy' ? 'Privy Embedded Wallet' : `Wallet ${index + 1}`,
+                address: pw.address,
+                chain: 'arc-testnet' as WalletType['chain'],
+                balance: {
+                  usdc: parseFloat(usdcToken?.amount || balance?.native.amount || '0'),
+                  native: parseFloat(balance?.native.amount || '0'),
+                },
+                status: 'active' as const,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              };
+            } catch (error) {
+              console.error(`Failed to fetch balance for wallet ${pw.address}:`, error);
+              return {
+                id: pw.address,
+                name: pw.walletClientType === 'privy' ? 'Privy Embedded Wallet' : `Wallet ${index + 1}`,
+                address: pw.address,
+                chain: 'arc-testnet' as WalletType['chain'],
+                balance: { usdc: 0, native: 0 },
+                status: 'active' as const,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              };
+            }
+          })
+        );
+        setWallets(mappedWallets);
+      } else {
+        setWallets(walletsData);
+      }
     } catch (error) {
-      console.error('Failed to create wallet:', error);
+      console.error('Failed to load wallet data:', error);
+      setWallets([]);
+      setUnifiedBalance({ total: 0, byChain: {} });
     } finally {
-      setCreating(false);
-    }
-  };
-
-  const handleConnectCircleWallet = async () => {
-    setConnectingCircle(true);
-    try {
-      await walletsService.initializeCircleWallet(
-        circleWalletDescription.trim() || undefined
-      );
-      await loadData();
-      setConnectCircleOpen(false);
-      setCircleWalletDescription('');
-    } catch (error) {
-      console.error('Failed to connect Circle wallet:', error);
-    } finally {
-      setConnectingCircle(false);
+      setLoading(false);
     }
   };
 
@@ -115,151 +106,14 @@ export default function WalletsPage() {
     <div>
       <PageHeader
         title="Wallets"
-        description="Manage your payment wallets across chains"
-        actions={
-          <div className="flex gap-2">
-            <Dialog open={connectCircleOpen} onOpenChange={setConnectCircleOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline">
-                  <Shield className="h-4 w-4 mr-2" />
-                  Connect Circle Wallet
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Connect Circle Wallet</DialogTitle>
-                  <DialogDescription>
-                    Initialize a custodial wallet managed by Circle. This wallet will be used by backend agents for payment execution.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="circle-description">Wallet Description (Optional)</Label>
-                    <Input
-                      id="circle-description"
-                      placeholder="e.g., Production Agent Wallet"
-                      value={circleWalletDescription}
-                      onChange={(e) => setCircleWalletDescription(e.target.value)}
-                      disabled={connectingCircle}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      A descriptive name for your Circle custodial wallet. Execution is handled by backend agents.
-                    </p>
-                  </div>
-                  <div className="rounded-md bg-muted p-3">
-                    <p className="text-xs text-muted-foreground">
-                      <strong>Note:</strong> This creates a custodial wallet managed by Circle. Private keys are never exposed to the frontend. All execution is handled securely by backend agents.
-                    </p>
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button 
-                    variant="outline" 
-                    onClick={() => {
-                      setConnectCircleOpen(false);
-                      setCircleWalletDescription('');
-                    }}
-                    disabled={connectingCircle}
-                  >
-                    Cancel
-                  </Button>
-                  <Button 
-                    onClick={handleConnectCircleWallet} 
-                    disabled={connectingCircle}
-                  >
-                    {connectingCircle ? 'Connecting...' : 'Connect Wallet'}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-            <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create Wallet
-                </Button>
-              </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Create New Wallet</DialogTitle>
-                <DialogDescription>
-                  Create a new wallet for receiving and sending payments.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Wallet Name *</Label>
-                  <Input
-                    id="name"
-                    placeholder="e.g., Treasury Wallet"
-                    value={newWalletName}
-                    onChange={(e) => setNewWalletName(e.target.value)}
-                    disabled={creating}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="chain">Chain *</Label>
-                  <Select 
-                    value={newWalletChain} 
-                    onValueChange={(v) => setNewWalletChain(v as ChainId)}
-                    disabled={creating}
-                  >
-                    <SelectTrigger id="chain">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {CHAINS.map((chain) => (
-                        <SelectItem key={chain.value} value={chain.value}>
-                          {chain.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="address">Wallet Address (Optional)</Label>
-                  <Input
-                    id="address"
-                    placeholder="0x... (leave empty to generate new wallet)"
-                    value={newWalletAddress}
-                    onChange={(e) => setNewWalletAddress(e.target.value)}
-                    disabled={creating}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Import an existing wallet by entering its address, or leave empty to create a new one
-                  </p>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button 
-                  variant="outline" 
-                  onClick={() => {
-                    setCreateOpen(false);
-                    setNewWalletName('');
-                    setNewWalletAddress('');
-                  }}
-                  disabled={creating}
-                >
-                  Cancel
-                </Button>
-                <Button 
-                  onClick={handleCreateWallet} 
-                  disabled={!newWalletName.trim() || creating}
-                >
-                  {creating ? 'Creating...' : 'Create Wallet'}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        }
+        description="Your wallets on ARC Network"
       />
 
       {/* Unified Balance */}
       {unifiedBalance && (
         <Card className="mb-6 max-w-md">
           <CardContent className="p-5">
-            <p className="text-sm text-muted-foreground mb-1">Total Balance (All Chains)</p>
+            <p className="text-sm text-muted-foreground mb-1">Total Balance (ARC Network)</p>
             <p className="text-3xl font-semibold">${unifiedBalance.total.toLocaleString()}</p>
             <p className="text-sm text-muted-foreground">USDC</p>
           </CardContent>
@@ -267,62 +121,72 @@ export default function WalletsPage() {
       )}
 
       {/* Wallet Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {wallets.map((wallet) => (
-          <Card key={wallet.id} className="hover:shadow-sm transition-shadow">
-            <CardHeader className="pb-2">
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <Wallet className="h-5 w-5 text-primary" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-base">{wallet.name}</CardTitle>
-                    <div className="flex items-center gap-2">
-                      <p className="text-xs text-muted-foreground capitalize">{wallet.chain}</p>
-                      {wallet.id.startsWith('wallet_circle_') && (
+      {wallets.length === 0 && !loading ? (
+        <Card>
+          <CardContent className="p-8 text-center">
+            <Wallet className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+            <p className="text-lg font-semibold mb-2">No wallets connected</p>
+            <p className="text-sm text-muted-foreground">
+              Connect a wallet using Privy to view your balance on ARC Network.
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {wallets.map((wallet) => (
+            <Card key={wallet.id} className="hover:shadow-sm transition-shadow">
+              <CardHeader className="pb-2">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <Wallet className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-base">{wallet.name}</CardTitle>
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs text-muted-foreground">ARC Testnet</p>
                         <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">
-                          Circle Custody
+                          Privy
                         </span>
-                      )}
+                      </div>
                     </div>
                   </div>
+                  <StatusChip status={wallet.status} />
                 </div>
-                <StatusChip status={wallet.status} />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <div>
-                  <p className="text-xs text-muted-foreground">USDC Balance</p>
-                  <p className="text-xl font-semibold">${wallet.balance.usdc.toLocaleString()}</p>
-                </div>
-                
-                <div>
-                  <p className="text-xs text-muted-foreground">Address</p>
-                  <div className="flex items-center gap-1">
-                    <code className="text-xs font-mono">{wallet.address}</code>
-                    <CopyButton value={wallet.address} />
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-xs text-muted-foreground">USDC Balance</p>
+                    <p className="text-xl font-semibold">${wallet.balance.usdc.toLocaleString()}</p>
+                  </div>
+                  
+                  <div>
+                    <p className="text-xs text-muted-foreground">Address</p>
+                    <div className="flex items-center gap-1">
+                      <code className="text-xs font-mono">{wallet.address}</code>
+                      <CopyButton value={wallet.address} />
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 pt-2">
+                    <Link to={`/app/wallets/${wallet.id}`} className="flex-1">
+                      <Button variant="outline" size="sm" className="w-full">
+                        <ExternalLink className="h-3 w-3 mr-1" />
+                        Details
+                      </Button>
+                    </Link>
+                    <Button variant="outline" size="sm" className="flex-1">
+                      <ArrowUpRight className="h-3 w-3 mr-1" />
+                      Fund
+                    </Button>
                   </div>
                 </div>
-
-                <div className="flex gap-2 pt-2">
-                  <Link to={`/app/wallets/${wallet.id}`} className="flex-1">
-                    <Button variant="outline" size="sm" className="w-full">
-                      <ExternalLink className="h-3 w-3 mr-1" />
-                      Details
-                    </Button>
-                  </Link>
-                  <Button variant="outline" size="sm" className="flex-1">
-                    <ArrowUpRight className="h-3 w-3 mr-1" />
-                    Fund
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

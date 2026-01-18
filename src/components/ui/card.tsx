@@ -1,10 +1,24 @@
 import * as React from "react";
+import { motion } from "framer-motion";
 
 import { cn } from "@/lib/utils";
 
-const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(({ className, ...props }, ref) => (
-  <div ref={ref} className={cn("rounded-lg border bg-card text-card-foreground shadow-sm", className)} {...props} />
-));
+const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(({ className, ...props }, ref) => {
+  const prefersReducedMotion = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  
+  return (
+    <motion.div
+      ref={ref}
+      className={cn("rounded-lg border border-border bg-card text-card-foreground shadow-sm hover:shadow-md transition-shadow duration-150", className)}
+      whileHover={prefersReducedMotion ? {} : {
+        scale: 1.01,
+        transition: { duration: 0.15, ease: "easeOut" }
+      }}
+      transition={{ duration: 0.15, ease: "easeOut" }}
+      {...props}
+    />
+  );
+});
 Card.displayName = "Card";
 
 const CardHeader = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
@@ -16,7 +30,7 @@ CardHeader.displayName = "CardHeader";
 
 const CardTitle = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLHeadingElement>>(
   ({ className, ...props }, ref) => (
-    <h3 ref={ref} className={cn("text-2xl font-semibold leading-none tracking-tight", className)} {...props} />
+    <h3 ref={ref} className={cn("text-lg font-semibold leading-none tracking-tight", className)} {...props} />
   ),
 );
 CardTitle.displayName = "CardTitle";

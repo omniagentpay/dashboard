@@ -2,13 +2,7 @@ import type { CrossChainTransfer, ChainId, RouteType } from '@/types';
 import { apiClient } from '@/lib/api-client';
 
 const CHAIN_NAMES: Record<ChainId, string> = {
-  ethereum: 'Ethereum',
-  polygon: 'Polygon',
-  arbitrum: 'Arbitrum',
-  optimism: 'Optimism',
-  base: 'Base',
-  avalanche: 'Avalanche',
-  solana: 'Solana',
+  'arc-testnet': 'ARC Testnet',
 };
 
 const ROUTE_INFO: Record<RouteType, { name: string; description: string }> = {

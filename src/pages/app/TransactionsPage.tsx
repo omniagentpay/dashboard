@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { PageHeader } from '@/components/PageHeader';
 import { StatusChip } from '@/components/StatusChip';
 import { JsonViewer } from '@/components/JsonViewer';
@@ -27,11 +28,12 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
-import { Search, Filter, Download, ExternalLink } from 'lucide-react';
+import { Search, Filter, Download, ExternalLink, FileText } from 'lucide-react';
 import { paymentsService } from '@/services/payments';
 import type { Transaction } from '@/types';
 import { formatDistanceToNow, format } from 'date-fns';
 import { CopyButton } from '@/components/CopyButton';
+import { ReceiptDrawer } from '@/components/ReceiptDrawer';
 
 export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -39,6 +41,7 @@ export default function TransactionsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
+  const [receiptDrawerOpen, setReceiptDrawerOpen] = useState(false);
 
   useEffect(() => {
     loadTransactions();
@@ -289,11 +292,31 @@ export default function TransactionsPage() {
                     <JsonViewer data={selectedTx.metadata} />
                   </div>
                 )}
+
+                <div className="pt-4 border-t">
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => {
+                      setReceiptDrawerOpen(true);
+                    }}
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    View AI Receipt
+                  </Button>
+                </div>
               </div>
             </div>
           )}
         </SheetContent>
       </Sheet>
+
+      <ReceiptDrawer
+        open={receiptDrawerOpen}
+        onOpenChange={setReceiptDrawerOpen}
+        transactionId={selectedTx?.id}
+        intentId={selectedTx?.intentId}
+      />
     </div>
   );
 }

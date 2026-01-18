@@ -29,13 +29,9 @@ interface CreatePaymentIntentModalProps {
   onSuccess?: () => void;
 }
 
+// ARC Network only for hackathon
 const CHAINS: { value: ChainId; label: string }[] = [
-  { value: 'ethereum', label: 'Ethereum' },
-  { value: 'polygon', label: 'Polygon' },
-  { value: 'arbitrum', label: 'Arbitrum' },
-  { value: 'optimism', label: 'Optimism' },
-  { value: 'base', label: 'Base' },
-  { value: 'avalanche', label: 'Avalanche' },
+  { value: 'arc-testnet', label: 'ARC Testnet' },
 ];
 
 export function CreatePaymentIntentModal({
@@ -54,7 +50,7 @@ export function CreatePaymentIntentModal({
     amount: '',
     description: '',
     walletId: '',
-    chain: 'ethereum' as ChainId,
+    chain: 'arc-testnet' as ChainId,
   });
 
   useEffect(() => {
@@ -67,7 +63,7 @@ export function CreatePaymentIntentModal({
         amount: '',
         description: '',
         walletId: '',
-        chain: 'ethereum',
+        chain: 'arc-testnet',
       });
     }
   }, [open]);
@@ -178,7 +174,6 @@ export function CreatePaymentIntentModal({
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="amount">Amount (USDC) *</Label>
                 <Input
@@ -195,25 +190,11 @@ export function CreatePaymentIntentModal({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="chain">Chain *</Label>
-                <Select
-                  value={formData.chain}
-                  onValueChange={(value) => setFormData((prev) => ({ ...prev, chain: value as ChainId }))}
-                  disabled={submitting}
-                >
-                  <SelectTrigger id="chain">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CHAINS.map((chain) => (
-                      <SelectItem key={chain.value} value={chain.value}>
-                        {chain.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>Network</Label>
+                <div className="px-3 py-2 bg-muted rounded-md text-sm">
+                  ARC Testnet
+                </div>
               </div>
-            </div>
 
             <div className="space-y-2">
               <Label htmlFor="wallet">Source Wallet *</Label>

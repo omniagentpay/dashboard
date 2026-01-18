@@ -152,7 +152,7 @@ Custodied wallet — execution handled by backend agents.`
           wallets.forEach(w => {
             output += `${w.name} (${w.chain})\n`;
             output += `  USDC: ${w.balance.usdc.toFixed(2)} USDC\n`;
-            output += `  Native: ${w.balance.native.toFixed(4)} ${w.chain === 'ethereum' ? 'ETH' : 'MATIC'}\n\n`;
+            output += `  Native: ${w.balance.native.toFixed(4)} USDC\n\n`;
           });
           return formatOutput('payment-agent-01', 'balance', output.trim());
         } catch (error) {
@@ -209,7 +209,7 @@ Custodied wallet — execution handled by backend agents.`
             recipientAddress: target,
             description: `Terminal simulation: ${amount} ${token} to ${target.substring(0, 10)}...`,
             walletId: 'wallet_circle_agent_001',
-            chain: 'ethereum',
+            chain: 'arc-testnet',
           });
           
           const simResult = await paymentsService.simulateIntent(intent.id);
@@ -401,7 +401,7 @@ ${result.results.map(r => `  ${r.guard}: ${r.passed ? 'PASS' : 'FAIL'}${r.reason
           return formatOutput(
             'payment-agent-01',
             'networks',
-            'Supported Networks:\n\n  • ethereum\n  • polygon\n  • arbitrum\n  • optimism\n  • base\n  • avalanche'
+            'Supported Networks:\n\n  • ARC Testnet'
           );
         } catch (error) {
           return formatOutput(
@@ -510,9 +510,18 @@ ${result.results.map(r => `  ${r.guard}: ${r.passed ? 'PASS' : 'FAIL'}${r.reason
                 <span className="text-foreground font-medium">{log.content}</span>
               )}
               {log.type === 'output' && (
-                <pre className="text-foreground/90 whitespace-pre-wrap break-words font-mono text-xs">
-                  {log.content}
-                </pre>
+                <div className="text-foreground/90 whitespace-pre-wrap break-words font-mono text-xs">
+                  {log.content.split('\n').map((line, idx, arr) => (
+                    <span key={idx}>
+                      {line.startsWith('Agent:') ? (
+                        <span className="text-green-500">{line}</span>
+                      ) : (
+                        line
+                      )}
+                      {idx < arr.length - 1 && '\n'}
+                    </span>
+                  ))}
+                </div>
               )}
               {log.type === 'error' && (
                 <span className="text-destructive">{log.content}</span>

@@ -20,12 +20,12 @@ const eventIcons = {
 };
 
 const eventColors = {
-  agent_action: 'text-blue-600',
-  tool_invocation: 'text-purple-600',
-  simulate: 'text-cyan-600',
-  guard_evaluation: 'text-amber-600',
-  approval_decision: 'text-green-600',
-  pay_execution: 'text-emerald-600',
+  agent_action: 'text-primary dark:text-primary',
+  tool_invocation: 'text-purple-500 dark:text-purple-400',
+  simulate: 'text-cyan-500 dark:text-cyan-400',
+  guard_evaluation: 'text-amber-500 dark:text-amber-400',
+  approval_decision: 'text-success dark:text-success',
+  pay_execution: 'text-success dark:text-success',
 };
 
 export function PaymentTimeline({ intentId, className }: PaymentTimelineProps) {
