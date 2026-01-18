@@ -163,18 +163,21 @@ paymentsRouter.post('/:id/approve', async (req, res) => {
     return res.status(404).json({ error: 'Payment intent not found' });
   }
   
-  if (intent.status !== 'awaiting_approval') {
+  if (intent.status !== 'awaiting_approval' && intent.status !== 'requires_approval') {
     return res.status(400).json({ error: 'Intent is not awaiting approval' });
   }
   
   intent.steps[1].status = 'completed';
   intent.steps[1].timestamp = new Date().toISOString();
-  intent.status = 'executing';
-  intent.steps[2].status = 'in_progress';
+  intent.status = 'approved';
   intent.updatedAt = new Date().toISOString();
   storage.savePaymentIntent(intent);
   
-  res.json({ success: true, intent });
+  res.json({ 
+    intentId: intent.id, 
+    status: intent.status, 
+    approvedAt: intent.updatedAt 
+  });
 });
 
 // Execute a payment intent
@@ -184,14 +187,16 @@ paymentsRouter.post('/:id/execute', async (req, res) => {
     return res.status(404).json({ error: 'Payment intent not found' });
   }
   
-  if (intent.status !== 'executing' && intent.status !== 'awaiting_approval') {
+  if (intent.status !== 'executing' && intent.status !== 'awaiting_approval' && intent.status !== 'approved' && intent.status !== 'requires_approval') {
     return res.status(400).json({ error: 'Intent is not ready for execution' });
   }
   
   // If not already executing, update status
-  if (intent.status === 'awaiting_approval') {
-    intent.steps[1].status = 'completed';
-    intent.steps[1].timestamp = new Date().toISOString();
+  if (intent.status === 'awaiting_approval' || intent.status === 'requires_approval' || intent.status === 'approved') {
+    if (intent.status !== 'approved') {
+      intent.steps[1].status = 'completed';
+      intent.steps[1].timestamp = new Date().toISOString();
+    }
     intent.status = 'executing';
     intent.steps[2].status = 'in_progress';
   }

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { storage } from '../lib/storage.js';
 import { callMcpTool } from '../lib/mcp-client.js';
-import { getCircleWalletClient } from '../lib/circle-wallet.js';
+import { getArcBalance, getUnifiedArcBalance } from '../lib/arc-balance.js';
 import type { Wallet } from '../types/index.js';
 
 export const walletsRouter = Router();
@@ -9,37 +9,47 @@ export const walletsRouter = Router();
 // Get all wallets
 walletsRouter.get('/', async (req, res) => {
   try {
-    // Try Circle Wallet SDK first (read-only)
-    const circleClient = getCircleWalletClient();
-    if (circleClient.isAvailable()) {
-      try {
-        const circleWallets = await circleClient.listWallets();
-        if (circleWallets.length > 0) {
-          // Map Circle wallets to our format
-          const wallets: Wallet[] = await Promise.all(
-            circleWallets.map(async (cw) => {
-              const balance = await circleClient.getBalance(cw.walletId);
-              return {
-                id: cw.walletId,
-                name: cw.description || `Agent Wallet (Circle Custody)`,
-                address: cw.walletId, // Circle uses wallet IDs, not addresses
-                chain: (balance?.chain || 'ethereum') as Wallet['chain'],
-                balance: {
-                  usdc: parseFloat(balance?.tokens.find(t => t.currency === 'USDC')?.amount || '0'),
-                  native: parseFloat(balance?.native.amount || '0'),
-                },
-                status: cw.state === 'ACTIVE' ? 'active' : 'inactive',
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-              };
-            })
-          );
-          return res.json(wallets);
-        }
-      } catch (error) {
-        console.error('Failed to fetch wallets from Circle SDK:', error);
-        // Fall through to storage fallback
+    // Get wallet addresses from query parameter (from Privy)
+    // Express handles array query params as either array or single value
+    let walletAddresses: string[] = [];
+    if (req.query.addresses) {
+      if (Array.isArray(req.query.addresses)) {
+        walletAddresses = req.query.addresses as string[];
+      } else {
+        walletAddresses = [req.query.addresses as string];
       }
+    }
+    
+    if (walletAddresses.length > 0) {
+      // Fetch wallets from ARC network
+      const wallets: Wallet[] = await Promise.all(
+        walletAddresses.map(async (address) => {
+          // Validate address format
+          if (!address || !address.match(/^0x[a-fA-F0-9]{40}$/)) {
+            return null;
+          }
+          
+          const balance = await getArcBalance(address);
+          const usdcToken = balance?.tokens.find(t => t.currency === 'USDC');
+          return {
+            id: address,
+            name: 'Privy Wallet',
+            address: address,
+            chain: 'arc-testnet' as Wallet['chain'],
+            balance: {
+              usdc: parseFloat(usdcToken?.amount || balance?.native.amount || '0'),
+              native: parseFloat(balance?.native.amount || '0'),
+            },
+            status: 'active' as const,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+        })
+      );
+      
+      // Filter out null values (invalid addresses)
+      const validWallets = wallets.filter((w): w is Wallet => w !== null);
+      return res.json(validWallets);
     }
   } catch (error) {
     console.error('Error in wallet fetch:', error);
@@ -150,9 +160,28 @@ walletsRouter.post('/', async (req, res) => {
   res.status(201).json(wallet);
 });
 
-// Get unified balance across all chains
+// Get unified balance across all chains (ARC Network)
 walletsRouter.get('/balance/unified', async (req, res) => {
   try {
+    // Get wallet addresses from query parameter (from Privy)
+    let walletAddresses: string[] = [];
+    if (req.query.addresses) {
+      if (Array.isArray(req.query.addresses)) {
+        walletAddresses = req.query.addresses as string[];
+      } else {
+        walletAddresses = [req.query.addresses as string];
+      }
+    }
+    
+    // Filter valid addresses
+    walletAddresses = walletAddresses.filter(addr => addr && addr.match(/^0x[a-fA-F0-9]{40}$/));
+    
+    if (walletAddresses.length > 0) {
+      const result = await getUnifiedArcBalance(walletAddresses);
+      return res.json(result);
+    }
+    
+    // Try MCP tool as fallback
     const result = await callMcpTool('unified_balance', {});
     if (result.success && result.data) {
       return res.json(result.data);
@@ -161,77 +190,39 @@ walletsRouter.get('/balance/unified', async (req, res) => {
     console.error('Failed to get unified balance:', error);
   }
   
-  // Try Circle Wallet SDK
-  const circleClient = getCircleWalletClient();
-  if (circleClient.isAvailable()) {
-    try {
-      const circleWallets = await circleClient.listWallets();
-      const byChain: Record<string, number> = {};
-      let total = 0;
-      
-      for (const cw of circleWallets) {
-        const balance = await circleClient.getBalance(cw.walletId);
-        if (balance) {
-          const chain = balance.chain;
-          const usdcAmount = parseFloat(balance.tokens.find(t => t.currency === 'USDC')?.amount || '0');
-          byChain[chain] = (byChain[chain] || 0) + usdcAmount;
-          total += usdcAmount;
-        }
-      }
-      
-      if (total > 0) {
-        return res.json({ total, by_chain: byChain });
-      }
-    } catch (error) {
-      console.error('Failed to get balance from Circle SDK:', error);
-    }
-  }
-  
-  // Fallback: calculate from stored wallets
-  const wallets = storage.getAllWallets();
-  const byChain: Record<string, number> = {};
-  let total = 0;
-  
-  for (const wallet of wallets) {
-    byChain[wallet.chain] = (byChain[wallet.chain] || 0) + wallet.balance.usdc;
-    total += wallet.balance.usdc;
-  }
-  
-  res.json({ total, by_chain: byChain });
+  // Fallback: return zero balance
+  res.json({ total: 0, by_chain: {} });
 });
 
-// Get wallet balance (Circle SDK endpoint)
+// Get wallet balance from ARC Network
 walletsRouter.get('/:id/balance', async (req, res) => {
-  const walletId = req.params.id;
+  const walletAddress = req.params.id;
   
-  const circleClient = getCircleWalletClient();
-  if (circleClient.isAvailable() && walletId.startsWith('wallet_circle_')) {
-    try {
-      const balance = await circleClient.getBalance(walletId);
-      if (balance) {
-        return res.json({
-          walletId: balance.walletId,
-          chain: balance.chain,
-          native: balance.native,
-          tokens: balance.tokens,
-        });
-      }
-    } catch (error) {
-      console.error('Failed to get balance from Circle SDK:', error);
+  // Validate address format
+  if (!walletAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
+    return res.status(400).json({ error: 'Invalid wallet address format' });
+  }
+  
+  try {
+    const balance = await getArcBalance(walletAddress);
+    if (balance) {
+      return res.json({
+        walletId: walletAddress,
+        chain: 'arc-testnet',
+        native: balance.native,
+        tokens: balance.tokens,
+      });
     }
+  } catch (error) {
+    console.error('Failed to get balance from ARC network:', error);
   }
   
-  // Fallback to storage
-  const wallet = storage.getWallet(walletId);
-  if (!wallet) {
-    return res.status(404).json({ error: 'Wallet not found' });
-  }
-  
+  // Fallback: return zero balance
   res.json({
-    walletId: wallet.id,
-    chain: wallet.chain,
-    native: { amount: wallet.balance.native.toString(), currency: wallet.chain === 'ethereum' ? 'ETH' : 'MATIC' },
-    tokens: [{ tokenAddress: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', amount: wallet.balance.usdc.toString(), currency: 'USDC' }],
+    walletId: walletAddress,
+    chain: 'arc-testnet',
+    native: { amount: '0', currency: 'USDC' },
+    tokens: [{ tokenAddress: 'native', amount: '0', currency: 'USDC' }],
   });
 });
 
